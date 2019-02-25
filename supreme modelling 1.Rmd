@@ -1,0 +1,299 @@
+---
+title: "Supreme Court modelling"
+author: "Austin Spivey"
+date: "February 25, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Supreme Court Modelling
+
+<br>
+
+To-Do:
+
+* Load packages
+* Load in raw data
+* Run descriptive stats and analyze summary
+* Clean and wrangle, as needed
+* First attempts at modelling
+
+
+
+<br>
+
+
+
+### Load packages
+
+<br>
+
+```{r}
+# install.packages("tidyverse")
+# install.packages("caret")
+# install.packages("caTools")
+# install.packages("rpart")
+# install.packages("rpart.plot")
+# install.packages("randomForest")
+# install.packages("e1071")
+# install.packages("scales")
+
+
+library(tidyverse)
+library(caret)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(e1071)
+library(scales)
+```
+
+
+
+<br>
+
+
+
+### Load in raw data
+
+<br>
+
+```{r}
+folder_path = "C:\\Users\\aspivey\\Desktop\\Spivey Stuff\\Supreme Court Data\\SCDB_2018_02_justiceCentered_LegalProvision.csv\\SCDB_2018_02_justiceCentered_LegalProvision.csv"
+
+raw_df = read.csv2(folder_path, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+
+
+
+<br>
+
+
+
+### Run descriptive stats and analyze summary
+
+<br>
+
+```{r}
+str(raw_df)
+```
+
+
+```{r}
+raw_df$dateArgument = as.Date(raw_df$dateArgument, "%m/%d/%Y")
+raw_df$dateRearg = as.Date(raw_df$dateRearg, "%m/%d/%Y")
+raw_df$dateDecision = as.Date(raw_df$dateDecision, "%m/%d/%Y")
+```
+
+<br>
+
+
+
+
+
+
+Examine Chiefs:
+
+```{r}
+# How many SCOTUS Chief Justices have there been since 1946?
+# What was the average number of years spent as Chief Justice?
+# Who had the longest stint as Chief? The shortest? 
+
+data.frame(distinct((raw_df %>% group_by(chief)), chief, "Years on Bench" = paste0(min(term),"-",max(term)), "Length of Term" = max(term)-min(term)), "Average Years on Bench for All" = colMeans(distinct((raw_df %>% group_by(chief)), max(term)-min(term))[2]))
+
+
+raw_df %>% group_by(justice, direction) %>% select(justice, justiceName, direction) %>% mutate(count = n()) %>% distinct() %>% arrange(justice) %>% group_by(justice) %>%
+  mutate(count_all = sum(count), percentage = percent(count / count_all))
+
+
+# Whose votes have been most "conservative"? Most "liberal"?
+
+raw_df %>%
+  group_by(justice, direction) %>%
+  select(justice, justiceName, direction) %>%
+  mutate(count = n()) %>%
+  distinct() %>%
+  arrange(justice) %>%
+  group_by(justice) %>%
+  mutate(count_all = sum(count), percentage = percent(count / count_all)) %>%
+  ungroup() %>%
+  group_by(direction) %>%
+  filter(percentage == max(percentage))
+```
+
+
+
+
+
+
+Examine issues:
+
+```{r}
+# How many unique dockets have there been since 1946?
+
+raw_df %>% group_by(docketId) %>% select(docketId) %>% count() %>% arrange(desc(n))
+
+# How many unanimous decisions have there been?
+
+raw_df %>% group_by(caseId) %>% select(caseId, caseIssuesId, majVotes, minVotes) %>% distinct() %>% filter(majVotes == 0 | minVotes == 0) %>% arrange(majVotes)
+
+# What date had the greatest number of oral arguments?
+
+raw_df %>%
+  group_by(dateArgument) %>%
+  select(dateArgument, caseId) %>%
+  distinct() %>%
+  mutate(count = n()) %>%
+  select(-caseId) %>%
+  distinct() %>%
+  arrange(desc(count)) %>%
+  ungroup() %>%
+  filter(is.na(dateArgument) == F) %>%
+  filter(count == max(count))
+
+
+
+
+raw_df %>%
+  select(dateArgument, caseId, docketId, caseIssuesId) %>%
+  filter(dateArgument == "1947-10-13") %>%
+  distinct()
+```
+
+
+
+
+
+
+
+
+
+
+### Clean and wrangle, as needed
+
+<br>
+
+```{r}
+fewvar_df = raw_df
+```
+
+
+```{r}
+# # Remove:
+# 
+#   # ID vars:
+#       caseId
+#       docketId
+#       caseIssuesId
+#       voteId
+#       usCite
+#       sctCite
+#       ledCite
+#       lexisCite
+#       docket
+# 
+#   # Outcome vars:
+#       decisionType
+#       declarationUncon
+#       caseDisposition
+#       caseDispositionUnusual
+#       precedentAlteration
+# 
+#   # Voting & Opinion vars:
+#       voteUnclear
+#       majOpinWriter
+#       majOpinAssigner
+#       splitVote
+#       majVotes
+#       minVotes
+#       vote
+#       opinion
+#       direction
+#       majority
+#       firstAgreement
+#       secondAgreement
+
+```
+
+<br>
+
+```{r}
+fewvar_df = subset(raw_df, select=-c(caseId,
+                       docketId,
+                       caseIssuesId,
+                       voteId,
+                       usCite,
+                       sctCite,
+                       ledCite,
+                       lexisCite,
+                       docket,
+                       decisionType,
+                       declarationUncon,
+                       caseDisposition,
+                       caseDispositionUnusual,
+                       precedentAlteration,
+                       voteUnclear,
+                       majOpinWriter,
+                       majOpinAssigner,
+                       splitVote,
+                       majVotes,
+                       minVotes,
+                       vote,
+                       opinion,
+                       direction,
+                       majority,
+                       firstAgreement,
+                       secondAgreement
+                       ))
+```
+
+
+
+
+<br>
+
+
+
+
+
+
+### First attempts at modelling
+
+<br>
+
+
+Split dataset
+
+```{r}
+set.seed(999)
+split =sample.split(fewvar_df$partyWinning, SplitRatio =0.7)
+train =subset(fewvar_df, split ==TRUE)
+test =subset(fewvar_df, split ==FALSE)
+```
+
+<br>
+
+
+For this model, I want to predict on the variable `partyWinning`, which indicates whether the petitioning party (i.e., the plaintiff or the appellant) emerged victorious.  
+
+The possible values:
+
+* **0** -	no favorable disposition for petitioning party apparent
+* **1** - 	petitioning party received a favorable disposition
+* **2** - 	favorable disposition for petitioning party unclear
+
+
+<br>
+
+
+Create a classification tree to predict `partyWinning` (indicates whether the petitioning party (i.e., the plaintiff or the appellant) emerged victorious). Use the training set and all variables. Plot the tree
+
+```{r}
+fit = rpart(partyWinning ~ ., data = train, method = "class")
+prp(fit)
+```
+
