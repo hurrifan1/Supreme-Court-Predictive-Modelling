@@ -105,11 +105,6 @@ Examine Chiefs:
 
 data.frame(distinct((raw_df %>% group_by(chief)), chief, "Years on Bench" = paste0(min(term),"-",max(term)), "Length of Term" = max(term)-min(term)), "Average Years on Bench for All" = colMeans(distinct((raw_df %>% group_by(chief)), max(term)-min(term))[2]))
 
-
-raw_df %>% group_by(justice, direction) %>% select(justice, justiceName, direction) %>% mutate(count = n()) %>% distinct() %>% arrange(justice) %>% group_by(justice) %>%
-  mutate(count_all = sum(count), percentage = percent(count / count_all))
-
-
 # Whose votes have been most "conservative"? Most "liberal"?
 
 raw_df %>%
@@ -135,11 +130,22 @@ Examine issues:
 ```{r}
 # How many unique dockets have there been since 1946?
 
-raw_df %>% group_by(docketId) %>% select(docketId) %>% count() %>% arrange(desc(n))
+raw_df %>%
+  group_by(docketId) %>%
+  select(docketId) %>%
+  count() %>%
+  arrange(desc(n))
+
 
 # How many unanimous decisions have there been?
 
-raw_df %>% group_by(caseId) %>% select(caseId, caseIssuesId, majVotes, minVotes) %>% distinct() %>% filter(majVotes == 0 | minVotes == 0) %>% arrange(majVotes)
+raw_df %>%
+  group_by(caseId) %>%
+  select(caseId, caseIssuesId, majVotes, minVotes) %>%
+  distinct() %>%
+  filter(majVotes == 0 | minVotes == 0) %>%
+  arrange(majVotes)
+
 
 # What date had the greatest number of oral arguments?
 
@@ -156,12 +162,100 @@ raw_df %>%
   filter(count == max(count))
 
 
-
+# This one is just a check
 
 raw_df %>%
   select(dateArgument, caseId, docketId, caseIssuesId) %>%
   filter(dateArgument == "1947-10-13") %>%
   distinct()
+
+
+# What legal provision is considered most often? Least often?
+
+raw_df %>%
+  select(caseIssuesId, lawType) %>%
+  distinct() %>%
+  group_by(lawType) %>%
+  mutate(count = n()) %>%
+  select(-caseIssuesId) %>%
+  distinct() %>%
+  arrange(desc(count)) %>%
+  ungroup() %>%
+  mutate(count_all = sum(count)) %>%
+  mutate(percentage = percent(count / count_all))
+
+
+# What legal issue has been the most prevalent?
+
+raw_df %>%
+  select(caseId, issue) %>%
+  distinct() %>%
+  group_by(issue) %>%
+  mutate(count = n()) %>%
+  select(-caseId) %>%
+  distinct() %>%
+  arrange(desc(count))
+
+
+# The hell was that contract (issue = 140030) all about?
+
+raw_df %>%
+  filter(issue == "140030") %>%
+  select(issue, issueArea)
+
+
+# Which issue area has been the most common? Least common?
+
+raw_df %>%
+  select(caseId, issueArea) %>%
+  distinct() %>%
+  group_by(issueArea) %>%
+  mutate(count = n()) %>%
+  select(-caseId) %>%
+  distinct() %>%
+  arrange(desc(count)) %>%
+  ungroup() %>%
+  mutate(count_all = sum(count)) %>%
+  mutate(percentage = percent(count / count_all))
+
+
+# Plotting the above slice
+
+ggplot(data = temp, aes(x = reorder(as.factor(issueArea), -count), y = as.double(count), fill = as.double(count), label = count)) +
+  geom_col() +
+  scale_fill_gradient() +
+  geom_text(nudge_y = 100)
+
+
+# Which judges voted most "liberally" on each issue area?
+
+raw_df %>%
+  select(justice, justiceName, direction, issueArea) %>%
+  group_by(justice, issueArea, direction) %>%
+  mutate(count = n()) %>%
+  ungroup() %>%
+  group_by(justice) %>%
+  distinct() %>%
+  arrange(justice, issueArea) %>%
+  ungroup() %>%
+  group_by(justice, issueArea) %>%
+  mutate(count_all = sum(count)) %>%
+  filter(direction == "2") %>%
+  mutate(percentage = percent(count / count_all)) %>%
+  ungroup() %>%
+  group_by(issueArea) %>%
+  filter(percentage == max(percentage)) %>%
+  arrange(issueArea)
+
+
+raw_df %>%
+  select(caseId,issueArea) %>%
+  group_by(issueArea) %>%
+  distinct() %>%
+  mutate(count = n()) %>%
+  select(-caseId) %>%
+  distinct() %>%
+  arrange(issueArea)
 ```
 
 
