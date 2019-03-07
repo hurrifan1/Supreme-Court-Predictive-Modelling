@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Supreme Court Modelling
 
-<br>
+
 
 To-Do:
 
@@ -23,13 +23,13 @@ To-Do:
 
 
 
-<br>
+
 
 
 
 ### Load packages
 
-<br>
+
 
 ```{r}
 # install.packages("tidyverse")
@@ -54,13 +54,13 @@ library(scales)
 
 
 
-<br>
+
 
 
 
 ### Load in raw data
 
-<br>
+
 
 ```{r}
 folder_path = "C:\\Users\\aspivey\\Desktop\\Spivey Stuff\\Supreme Court Data\\SCDB_2018_02_justiceCentered_LegalProvision.csv\\SCDB_2018_02_justiceCentered_LegalProvision.csv"
@@ -70,13 +70,13 @@ raw_df = read.csv2(folder_path, header = TRUE, sep = ",", stringsAsFactors = FAL
 
 
 
-<br>
+
 
 
 
 ### Run descriptive stats and analyze summary
 
-<br>
+
 
 ```{r}
 str(raw_df)
@@ -89,7 +89,7 @@ raw_df$dateRearg = as.Date(raw_df$dateRearg, "%m/%d/%Y")
 raw_df$dateDecision = as.Date(raw_df$dateDecision, "%m/%d/%Y")
 ```
 
-<br>
+
 
 
 
@@ -269,7 +269,7 @@ raw_df %>%
 
 ### Clean and wrangle, as needed
 
-<br>
+
 
 ```{r}
 fewvar_df = raw_df
@@ -313,7 +313,7 @@ fewvar_df = raw_df
 
 ```
 
-<br>
+
 
 ```{r}
 fewvar_df = subset(raw_df, select=-c(caseId,
@@ -348,7 +348,7 @@ fewvar_df = subset(raw_df, select=-c(caseId,
 
 
 
-<br>
+
 
 
 
@@ -357,7 +357,62 @@ fewvar_df = subset(raw_df, select=-c(caseId,
 
 ### First attempts at modelling
 
-<br>
+Linear Regression:
+
+```{r}
+temp_df1 = fewvar_df %>%
+  group_by(partyWinning) %>%
+  filter(partyWinning != 2 | NA) %>%
+  select(justice, justiceName, partyWinning) %>%
+  mutate(just_ID = ( justice + 1 )- min(justice))
+
+
+
+temp_df = fewvar_df %>%
+  select(justice, justiceName, partyWinning) %>%
+  distinct() %>%
+  arrange(justice) %>%
+  mutate(just_ID = ( justice + 1 )- min(justice))
+
+
+
+fewvar_df %>%
+  group_by(justice, partyWinning) %>%
+  select(justice, justiceName, partyWinning) %>%
+  mutate(count = n()) %>%
+  distinct() %>%
+  arrange(justice) %>%
+  ungroup() %>%
+  group_by(justice) %>%
+  mutate(count_all = sum(count)) %>%
+  mutate(percentage = percent(count / count_all)) %>%
+  select(-c(count, count_all)) %>%
+  filter(partyWinning != 2 | NA)
+```
+
+
+```{r}
+model1 = lm(data = temp_df1, partyWinning ~ just_ID)
+anova(model1)
+```
+
+
+```{r}
+scatter.smooth(x=temp_df1$partyWinning, y=temp_df1$just_ID, main="partyWinning ~ justice")
+```
+
+
+
+ANOVA:
+
+```{r}
+anova1 = aov(temp_df1$partyWinning ~ temp_df1$just_ID)
+
+summary(anova1)
+```
+
+
+
 
 
 Split dataset
@@ -369,7 +424,7 @@ train =subset(fewvar_df, split ==TRUE)
 test =subset(fewvar_df, split ==FALSE)
 ```
 
-<br>
+
 
 
 For this model, I want to predict on the variable `partyWinning`, which indicates whether the petitioning party (i.e., the plaintiff or the appellant) emerged victorious.  
@@ -381,7 +436,7 @@ The possible values:
 * **2** - 	favorable disposition for petitioning party unclear
 
 
-<br>
+
 
 
 Create a classification tree to predict `partyWinning` (indicates whether the petitioning party (i.e., the plaintiff or the appellant) emerged victorious). Use the training set and all variables. Plot the tree
